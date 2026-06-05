@@ -79,9 +79,7 @@ const GlobalTools = () => {
                          bottom-0 left-0 right-0 p-2 flex flex-row items-center justify-start gap-2 border-t border-slate-700 overflow-x-auto
                          md:top-1/4 md:left-5 md:right-auto md:bottom-5 md:flex-col md:items-stretch md:p-3 md:gap-2 md:border-t-0 md:rounded-lg md:border
                          transition-all duration-300 ${activeTool === 'log' || activeTool === 'presets' ? 'md:w-96' : 'md:w-64'}`}>
-                {/* Recording Studio entry — hidden until the Kajabi iframe is granted
-                    camera/microphone permissions. Uncomment to re-enable. */}
-                {/*
+                {/* Recording Studio entry — opens its own modal rather than expanding inline */}
                 <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 flex-shrink-0 md:flex md:flex-col">
                     <div className="flex items-center flex-shrink-0">
                         <button
@@ -93,7 +91,6 @@ const GlobalTools = () => {
                         </button>
                     </div>
                 </div>
-                */}
                 {tools.map(tool => {
                     const ToolComponent = tool.Component;
                     return (
