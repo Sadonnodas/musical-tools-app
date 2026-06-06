@@ -6,18 +6,52 @@ import InfoButton from '../common/InfoButton';
 import { ChordTrainerSetup } from './ChordTrainerSetup';
 import { ChordTrainerControls } from './ChordTrainerControls';
 
-const ALTERNATE_SYMBOLS = { 'm': '-', 'maj7': '△7', 'm7': '-7', 'dim': '°', 'm7b5': 'ø7', '7': '7' };
+// Map from standard chord-suffix → jazz chart symbol. The trainer always
+// renders in jazz form; this map drives the substitution in ChordDisplay.
+const JAZZ_SYMBOLS = { 'm': '-', 'maj7': '△7', 'm7': '-7', 'dim': '°', 'm7b5': 'ø7', '7': '7' };
 
-const ChordDisplay = ({ chord, useAlternateNotation = false }) => {
+// Per-mode set of awkward-to-type music symbols. `-` is the jazz minor
+// indicator; `°` is the diminished triad on vii; `ø` is the half-diminished
+// m7b5 in 7-chord mode; `△` is major-7. Sharps and flats are always useful
+// for roots like Bb / F#. `7` lives in the 7-mode palette so mobile users
+// don't have to flip to the numeric keyboard mid-chord.
+// Order matches typing order so the palette reads left-to-right alongside
+// the chord name: [root letter] [accidental] [quality] [extension] [alteration].
+const PALETTE_SYMBOLS_TRIAD = ['♭', '♯', '-', '°'];
+const PALETTE_SYMBOLS_7TH = ['♭', '♯', '-', '△', 'ø', '7', '♭5'];
+
+const SymbolPalette = ({ use7thChords, disabled, onInsert }) => {
+    const symbols = use7thChords ? PALETTE_SYMBOLS_7TH : PALETTE_SYMBOLS_TRIAD;
+    return (
+        <div className="flex items-center justify-center gap-2 mb-2" aria-label="Insert symbol">
+            {symbols.map((sym) => (
+                <button
+                    key={sym}
+                    type="button"
+                    onClick={() => onInsert(sym)}
+                    disabled={disabled}
+                    // Tabindex -1 so Tab from the input still jumps to Submit,
+                    // not through the palette. Click-only by design.
+                    tabIndex={-1}
+                    title={`Insert ${sym}`}
+                    className="w-9 h-9 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-xl text-teal-300 font-semibold flex items-center justify-center"
+                >
+                    {sym}
+                </button>
+            ))}
+        </div>
+    );
+};
+
+const ChordDisplay = ({ chord }) => {
     if (!chord) return null;
     let displayName = chord;
-    if (useAlternateNotation) {
-        const sortedSuffixes = Object.keys(ALTERNATE_SYMBOLS).sort((a, b) => b.length - a.length);
-        for (const suffix of sortedSuffixes) {
-            if (displayName.endsWith(suffix)) {
-                displayName = displayName.slice(0, -suffix.length) + ALTERNATE_SYMBOLS[suffix];
-                break;
-            }
+    // Always render in jazz form: swap any standard suffix for its jazz glyph.
+    const sortedSuffixes = Object.keys(JAZZ_SYMBOLS).sort((a, b) => b.length - a.length);
+    for (const suffix of sortedSuffixes) {
+        if (displayName.endsWith(suffix)) {
+            displayName = displayName.slice(0, -suffix.length) + JAZZ_SYMBOLS[suffix];
+            break;
         }
     }
     const match = displayName.match(/^([A-G])([#b]?)(.*)/);
@@ -90,18 +124,21 @@ const QuizScreen = ({ initialSettings, onLogSession, onGoToSetup, onProgressUpda
         const q = itemToDisplay.question;
         if (!q || !q.prompt) return null;
         if (q.type === 'error') return <span className="text-red-400">{q.prompt.text}</span>;
+        if (q.type === 'loading') return <span className="text-gray-400 italic">{q.prompt.text}</span>;
         
+        // Split on `{key}` and `{chordType}` placeholders, styling each.
+        // `text-highlight` (yellow) marks the musical key; teal marks the
+        // chord-type word (triad/tetrad) so it stands out in hide-quality mode.
         let keyIndex = 0;
-        const questionTextParts = q.prompt.text.split('{key}').map((part, index) => {
-            if (index < q.prompt.keys.length) {
-                return (
-                    <React.Fragment key={index}>
-                        {part}
-                        <span className="text-highlight font-bold">{q.prompt.keys[keyIndex++]}</span>
-                    </React.Fragment>
-                );
+        const segments = q.prompt.text.split(/(\{key\}|\{chordType\})/);
+        const questionTextParts = segments.map((segment, index) => {
+            if (segment === '{key}' && q.prompt.keys && keyIndex < q.prompt.keys.length) {
+                return <span key={index} className="text-highlight font-bold">{q.prompt.keys[keyIndex++]}</span>;
             }
-            return part;
+            if (segment === '{chordType}' && q.prompt.chordType) {
+                return <span key={index} className="text-indigo-300 font-bold">{q.prompt.chordType}</span>;
+            }
+            return <React.Fragment key={index}>{segment}</React.Fragment>;
         });
 
         const contentParts = q.prompt.content.split(' ');
@@ -112,7 +149,7 @@ const QuizScreen = ({ initialSettings, onLogSession, onGoToSetup, onProgressUpda
                 <div className="inline-flex flex-wrap justify-center items-center gap-2">
                     {contentParts.map((part, index) => (
                         <strong key={index} className="text-4xl font-bold text-teal-300 bg-slate-700/50 px-3 py-1 rounded-md">
-                            <ChordDisplay chord={part} useAlternateNotation={settings.useAlternateNotation} />
+                            <ChordDisplay chord={part} />
                         </strong>
                     ))}
                 </div>
@@ -126,8 +163,8 @@ const QuizScreen = ({ initialSettings, onLogSession, onGoToSetup, onProgressUpda
                 <div className="space-y-4 text-sm">
                     <div><h4 className="font-bold text-indigo-300 mb-1">Game Modes</h4><ul className="list-disc list-inside space-y-1"><li><b>Name Chord:</b> Given a key and a Roman numeral, name the chord.</li><li><b>Name Numeral:</b> Given a key and a chord, name the Roman numeral.</li><li><b>Progression:</b> Given a key and a numeral progression, name all the chords.</li><li><b>Transpose:</b> Given a chord progression in a starting key, transpose it to a new key, keeping the scale degrees (roman numerals) the same.</li></ul></div>
                     <div><h4 className="font-bold text-indigo-300 mt-2 mb-1">Chord Complexity</h4><p>Use the "Use 7th Chords" toggle to switch between triads (3-note chords) and tetrads (4-note chords). When active, you must provide the full 7th chord name (e.g., Cmaj7, Dm7).</p></div>
-                    <div><h4 className="font-bold text-indigo-300 mt-2 mb-1">Roman Numerals</h4><p>Roman numerals represent scale degrees. Their case indicates quality (e.g., I is major, ii is minor, vii° is diminished). They do not include the "7" for tetrads; you are expected to know the correct 7th chord quality for that degree.</p></div>
-                    <div><h4 className="font-bold text-indigo-300 mt-2">Advanced Options</h4><ul className="list-disc list-inside space-y-1"><li><b>Alternate Notation:</b> Displays chords with professional symbols (e.g., C-, F△7, Bø7). Even when active, you should type your answers in standard notation (e.g., Cm7, Fmaj7).</li><li><b>Hide Quality:</b> For a harder challenge, this makes all Roman numerals uppercase (e.g., ii becomes II), forcing you to recall the quality from theory.</li></ul></div>
+                    <div><h4 className="font-bold text-indigo-300 mt-2 mb-1">Roman Numerals</h4><p>Roman numerals represent scale degrees. Their case indicates quality: <b>I, IV</b> are major; <b>ii, iii, vi</b> are minor; <b>vii°</b> is diminished. In 7-chord mode the prompt shows the proper 7th quality (<b>Imaj7, iim7, V7, viiø7</b>, etc.) and you must answer with it.</p></div>
+                    <div><h4 className="font-bold text-indigo-300 mt-2">Display & Input</h4><ul className="list-disc list-inside space-y-1"><li>Questions are displayed in <b>jazz chart notation</b> (A-7, C△7, Bø7). The parser accepts either form when you type, so <code>Am7</code>, <code>A-7</code>, and <code>Amin7</code> are all marked correct.</li><li>The symbol palette above the input has the jazz glyphs (<code>-</code> <code>°</code> <code>ø</code> <code>△</code>) so you don't have to hunt for them on the keyboard.</li><li><b>Hide Quality:</b> For a harder challenge, this strips the quality from the numerals (so you just see I, II, VI, etc.) and the prompt asks for the "triad" or "tetrad" — you have to recall the quality from theory.</li></ul></div>
                 </div>
             </InfoModal>
 
@@ -151,8 +188,39 @@ const QuizScreen = ({ initialSettings, onLogSession, onGoToSetup, onProgressUpda
                         </div>
                     )}
                     
-                    <div className={`text-xl my-4 min-h-[28px] ${feedback.startsWith('Correct') ? 'text-green-400' : 'text-red-400'}`}>{feedback}</div>
+                    {isReviewing && itemToDisplay.question && itemToDisplay.question.type !== 'error' ? (
+                        <div className="text-base my-4 min-h-[28px] flex flex-col items-center gap-1 w-full">
+                            <div className={itemToDisplay.wasCorrect ? 'text-green-400' : 'text-red-400'}>
+                                {itemToDisplay.wasCorrect ? '✓ Correct' : '✗ Incorrect'}
+                                {' — you answered: '}
+                                <span className="font-mono">{itemToDisplay.userAnswer || '(blank)'}</span>
+                            </div>
+                            <div className="text-gray-300">
+                                Correct answer: <span className="font-mono text-teal-300">{itemToDisplay.question.answer}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={`text-xl my-4 min-h-[28px] ${feedback.startsWith('Correct') ? 'text-green-400' : 'text-red-400'}`}>{feedback}</div>
+                    )}
                     <form onSubmit={(e)=>{e.preventDefault(); checkAnswer(userAnswer, settings.autoAdvance)}} className="w-full max-w-sm flex flex-col items-center">
+                        <SymbolPalette
+                            use7thChords={settings.use7thChords}
+                            disabled={!!feedback || isReviewing}
+                            onInsert={(sym) => {
+                                const el = inputRef.current;
+                                const start = el?.selectionStart ?? userAnswer.length;
+                                const end = el?.selectionEnd ?? userAnswer.length;
+                                const next = userAnswer.slice(0, start) + sym + userAnswer.slice(end);
+                                setUserAnswer(next);
+                                // Restore caret right after the inserted glyph
+                                requestAnimationFrame(() => {
+                                    if (!el) return;
+                                    el.focus();
+                                    const pos = start + sym.length;
+                                    el.setSelectionRange(pos, pos);
+                                });
+                            }}
+                        />
                         <input ref={inputRef} type="text" value={isReviewing ? '' : userAnswer} onChange={(e) => setUserAnswer(e.target.value)} className="w-full text-center text-xl p-3 rounded-lg bg-slate-700" disabled={!!feedback || isReviewing} autoFocus />
                         <div className="h-20 mt-3 flex justify-center items-center gap-4">
                             {isReviewing ? (<div className="flex items-center gap-4"><button type="button" onClick={() => handleReviewNav(-1)} disabled={reviewIndex === 0} className="p-3 rounded-lg bg-slate-600">Prev</button><button type="button" onClick={() => setReviewIndex(null)} className="bg-purple-600 p-3 rounded-lg font-bold">Return</button><button type="button" onClick={() => handleReviewNav(1)} disabled={reviewIndex === history.length - 1} className="p-3 rounded-lg bg-slate-600">Next</button></div>) 
@@ -193,7 +261,7 @@ const ChordTrainer = ({ onProgressUpdate, challengeSettings }) => {
     }, [challengeSettings, presetToLoad, clearPresetToLoad]);
 
     const handleStart = (settingsFromSetup) => {
-        setInitialSettings({ ...settingsFromSetup, degreeToggles: { 'I': true, 'ii': true, 'iii': true, 'IV': true, 'V': true, 'vi': true, 'vii°': true }, useAlternateNotation: false, autoAdvance: true, hideQuality: false, });
+        setInitialSettings({ ...settingsFromSetup, degreeToggles: { 'I': true, 'ii': true, 'iii': true, 'IV': true, 'V': true, 'vi': true, 'vii°': true }, autoAdvance: true, hideQuality: false, });
         setScreen('quiz');
     };
     const handleGoToSetup = () => { if (window.confirm("Are you sure you want to return to the menu? Your session will be lost.")) { setScreen('setup'); setInitialSettings(null); } };

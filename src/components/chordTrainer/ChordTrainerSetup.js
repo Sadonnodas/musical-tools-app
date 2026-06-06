@@ -9,9 +9,10 @@ const keysInFifthsOrder = [
 ];
 const extraEnharmonicKeys = ['Gb'];
 const majorDefaultWeights = [10, 6, 4, 8, 10, 8, 2];
+// Proper diatonic 7th-chord qualities in major keys (see Controls file for note).
 const scaleDegreeNames = {
     triads: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
-    sevenths: ['Imaj7', 'ii7', 'iii7', 'IVmaj7', 'V7', 'vi7', 'viim7b5']
+    sevenths: ['Imaj7', 'iim7', 'iiim7', 'IVmaj7', 'V7', 'vim7', 'viiø7']
 };
 const gameModes = [ {id: 1, label: "Name Chord"}, {id: 4, label: "Name Numeral"}, {id: 2, label: "Progression"}, {id: 3, label: "Transpose"} ];
 

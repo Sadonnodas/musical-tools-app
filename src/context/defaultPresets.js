@@ -114,7 +114,6 @@ export const defaultPresets = [
             generationMethod: 'weighted',
             majorWeights: [10, 6, 4, 8, 10, 8, 2],
             degreeToggles: { 'I': true, 'ii': true, 'iii': true, 'IV': true, 'V': true, 'vi': true, 'vii°': true },
-            useAlternateNotation: false,
             autoAdvance: true,
             hideQuality: false,
         },
