@@ -45,6 +45,13 @@ export const useRecorderLogic = () => {
     const [autoStopMin, setAutoStopMin] = useState(0); // 0 = off
     const [includeTabAudio, setIncludeTabAudio] = useState(true);
     const [filenamePrefix, setFilenamePrefix] = useState('practice');
+    // When on, after acquiring the screen-capture stream we crop it to the
+    // app's `<main>` content area using the Region/Element Capture API.
+    // Two wins: the active tool fills the recording (so e.g. Note Generator
+    // output is big and legible in the final PiP), and the floating live
+    // preview gets cropped out so it doesn't end up recursively in the
+    // recording. Falls back to whole-tab capture when the API is missing.
+    const [cropScreenCapture, setCropScreenCapture] = useState(true);
     const [micGain, setMicGain] = useState(1);
     const [systemGain, setSystemGain] = useState(1);
     // When true (default for music): disable browser-level echo cancellation,
@@ -252,6 +259,32 @@ export const useRecorderLogic = () => {
             video: { frameRate: 30 },
             audio: includeTabAudio,
         });
+
+        // Try to crop the stream to just the app's main content area. Only
+        // works for "This Tab" captures on browsers that support Region
+        // Capture (Chrome / Edge 104+) or Element Capture (Chrome 132+).
+        // Silently falls back to whole-tab capture on unsupported browsers
+        // or when the user picked Entire Screen / Window.
+        if (cropScreenCapture) {
+            const target = document.getElementById('app-main-content');
+            const track = stream.getVideoTracks()[0];
+            if (target && track) {
+                try {
+                    if (window.RestrictionTarget && window.RestrictionTarget.fromElement && track.restrictTo) {
+                        const rt = await window.RestrictionTarget.fromElement(target);
+                        await track.restrictTo(rt);
+                    } else if (window.CropTarget && window.CropTarget.fromElement && track.cropTo) {
+                        const ct = await window.CropTarget.fromElement(target);
+                        await track.cropTo(ct);
+                    }
+                } catch (e) {
+                    // Most often this means the user picked something other
+                    // than "This Tab" — that's fine, we just get the whole
+                    // capture as the fallback.
+                    console.warn('Region/Element Capture failed; recording whole capture instead.', e);
+                }
+            }
+        }
         // Browser may end the stream (user clicked "Stop sharing") — handle it.
         stream.getVideoTracks()[0]?.addEventListener('ended', () => {
             screenStreamRef.current = null;
@@ -271,7 +304,7 @@ export const useRecorderLogic = () => {
         } else {
             setError(null);
         }
-    }, [capabilities.displayMedia, includeTabAudio]);
+    }, [capabilities.displayMedia, includeTabAudio, cropScreenCapture]);
 
     const ensureCompositor = useCallback(() => {
         if (compositorRef.current) return compositorRef.current;
@@ -674,6 +707,7 @@ export const useRecorderLogic = () => {
         includeScreen, setIncludeScreen,
         includeAudio, setIncludeAudio,
         includeTabAudio, setIncludeTabAudio,
+        cropScreenCapture, setCropScreenCapture,
         resolution, setResolution,
         pip, setPip,
         mirrorWebcam, setMirrorWebcam,

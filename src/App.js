@@ -141,7 +141,7 @@ const showChordShapes = process.env.REACT_APP_SHOW_CHORD_SHAPES === 'true';
         </div>
       </nav>
 
-      <main className="w-full max-w-5xl mx-auto bg-slate-800 shadow-2xl rounded-xl p-4 md:p-8 flex-grow">
+      <main id="app-main-content" className="w-full max-w-5xl mx-auto bg-slate-800 shadow-2xl rounded-xl p-4 md:p-8 flex-grow">
           {activeRoutine ? <RoutineRunner /> : ( // RENAMED
               <>
                   {activeTab === 'welcome' && <Welcome />}

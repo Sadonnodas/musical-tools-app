@@ -38,6 +38,7 @@ const SetupPanel = ({ onClose }) => {
         includeScreen, setIncludeScreen,
         includeAudio, setIncludeAudio,
         includeTabAudio, setIncludeTabAudio,
+        cropScreenCapture, setCropScreenCapture,
         resolution, setResolution,
         pip, setPip,
         mirrorWebcam, setMirrorWebcam,
@@ -247,6 +248,17 @@ const SetupPanel = ({ onClose }) => {
                             <p className="text-[11px] text-gray-400">
                                 In Chrome's dialog: pick <span className="font-semibold">"This Tab"</span> and tick <span className="font-semibold">"Share tab audio"</span>.
                             </p>
+                            <label className="flex items-start gap-2 text-[11px] text-gray-200">
+                                <input
+                                    type="checkbox"
+                                    checked={cropScreenCapture}
+                                    onChange={(e) => setCropScreenCapture(e.target.checked)}
+                                    className="mt-0.5"
+                                />
+                                <span>
+                                    <span className="font-semibold">Zoom into the practice tool</span> — crop the recording to just the active tool (Note Generator, quiz, etc.) so the content is bigger and more legible in the final video. Also hides the live preview from being captured. Pick a new screen / window after toggling this.
+                                </span>
+                            </label>
 
                             {includeWebcam && (
                                 <div className="border-t border-slate-700 pt-2 mt-1 flex flex-col gap-2">
