@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/musical-tools-app/static/css/main.c35b7e42.css",
-    "main.js": "/musical-tools-app/static/js/main.af922c1d.js",
+    "main.css": "/musical-tools-app/static/css/main.a1368229.css",
+    "main.js": "/musical-tools-app/static/js/main.595b3c8c.js",
     "static/js/123.8338ddeb.chunk.js": "/musical-tools-app/static/js/123.8338ddeb.chunk.js",
     "static/js/190.d8933226.chunk.js": "/musical-tools-app/static/js/190.d8933226.chunk.js",
     "static/js/795.3b3b26cd.chunk.js": "/musical-tools-app/static/js/795.3b3b26cd.chunk.js",
     "static/js/453.267d8d01.chunk.js": "/musical-tools-app/static/js/453.267d8d01.chunk.js",
     "static/js/726.07b7d9b7.chunk.js": "/musical-tools-app/static/js/726.07b7d9b7.chunk.js",
     "index.html": "/musical-tools-app/index.html",
-    "main.c35b7e42.css.map": "/musical-tools-app/static/css/main.c35b7e42.css.map",
-    "main.af922c1d.js.map": "/musical-tools-app/static/js/main.af922c1d.js.map",
+    "main.a1368229.css.map": "/musical-tools-app/static/css/main.a1368229.css.map",
+    "main.595b3c8c.js.map": "/musical-tools-app/static/js/main.595b3c8c.js.map",
     "123.8338ddeb.chunk.js.map": "/musical-tools-app/static/js/123.8338ddeb.chunk.js.map",
     "190.d8933226.chunk.js.map": "/musical-tools-app/static/js/190.d8933226.chunk.js.map",
     "795.3b3b26cd.chunk.js.map": "/musical-tools-app/static/js/795.3b3b26cd.chunk.js.map",
@@ -17,7 +17,7 @@
     "726.07b7d9b7.chunk.js.map": "/musical-tools-app/static/js/726.07b7d9b7.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.c35b7e42.css",
-    "static/js/main.af922c1d.js"
+    "static/css/main.a1368229.css",
+    "static/js/main.595b3c8c.js"
   ]
 }
