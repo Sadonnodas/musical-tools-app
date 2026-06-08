@@ -255,10 +255,22 @@ export const useRecorderLogic = () => {
 
     const pickScreenSource = useCallback(async () => {
         if (!capabilities.displayMedia) throw new Error('Screen capture is not supported in this browser. Use Chrome or Edge on a desktop.');
-        const stream = await navigator.mediaDevices.getDisplayMedia({
+
+        // When "zoom into practice tool" is on, request the *current* tab
+        // directly via `preferCurrentTab` — Chrome shows a simple "Share
+        // this tab?" confirmation instead of the picker (the current tab is
+        // hidden from Chrome's Tab list by default, so without this option
+        // students had to dig through Window → pick the right one). When
+        // crop is off, we use the standard picker so they can pick any
+        // other tab / window / screen.
+        const constraints = {
             video: { frameRate: 30 },
             audio: includeTabAudio,
-        });
+        };
+        if (cropScreenCapture) {
+            constraints.preferCurrentTab = true;
+        }
+        const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
 
         // Try to crop the stream to just the app's main content area. Only
         // works for "This Tab" captures on browsers that support Region
