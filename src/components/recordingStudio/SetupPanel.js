@@ -264,7 +264,7 @@ const SetupPanel = ({ onClose }) => {
                                 {screenBtnLabel}
                             </button>
                             <p className="text-[11px] text-gray-400">
-                                In Chrome's dialog, look in the <span className="font-semibold">Chrome Tab</span> section, pick <span className="font-semibold">"This Tab"</span>, and tick <span className="font-semibold">"Share tab audio"</span> so the metronome / drone are captured.
+                                In Chrome's dialog, click the <span className="font-semibold">Window</span> tab, pick the window with the practice app, and tick the audio sharing checkbox so the metronome / drone are captured. (Don't use "This Tab" — Chrome freezes the recorded PiP in that mode.)
                             </p>
                             <label className="flex items-start gap-2 text-[11px] text-gray-200">
                                 <input
