@@ -230,6 +230,27 @@ export const createCompositor = ({
     };
     styleCanvasForHost();
 
+    // CRITICAL: also keep the source <video> elements in the DOM. Chrome
+    // throttles off-DOM video elements' decoders just like it throttles
+    // off-DOM canvas RAF — when the screenVideo decoder pauses, the
+    // compositor keeps drawing the SAME stale frame from it into the PiP
+    // overlay, so the recorded video has frozen screen content even
+    // though the canvas itself is being drawn at 30fps. Park them 1×1
+    // and invisible inside the host so they decode at full rate without
+    // showing up visually.
+    [webcamVideo, screenVideo].forEach((v) => {
+        v.style.cssText = [
+            'position:absolute',
+            'left:0',
+            'top:0',
+            'width:1px',
+            'height:1px',
+            'opacity:0',
+            'pointer-events:none',
+        ].join(';');
+        hiddenHost.appendChild(v);
+    });
+
     const attachTo = (parent) => {
         if (!parent || canvas.parentElement === parent) return;
         parent.appendChild(canvas);

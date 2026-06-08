@@ -128,6 +128,24 @@ const SetupPanel = ({ onClose }) => {
                     Your browser doesn't support camera/microphone access. Try Chrome, Edge or Firefox on a desktop.
                 </div>
             )}
+            {typeof window !== 'undefined' && window.self !== window.top && (
+                <div className="bg-amber-900/30 border border-amber-700 text-amber-200 p-3 rounded text-sm flex items-start gap-3">
+                    <div className="flex-1">
+                        <div className="font-semibold mb-1">For best recording results, open this app in its own tab</div>
+                        <div className="text-xs">
+                            You're using the practice app embedded in another page. Browsers cap the number of video / audio players per page, and the embedding course page already uses many of them — recordings can fail silently. Click "Open in new tab" and bookmark the standalone URL.
+                        </div>
+                    </div>
+                    <a
+                        href="https://metzguillaume.github.io/musical-tools-app"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded px-3 py-2 whitespace-nowrap"
+                    >
+                        Open in new tab ↗
+                    </a>
+                </div>
+            )}
             {error && (
                 <div className="bg-red-900/40 border border-red-700 text-red-200 p-3 rounded text-sm">
                     {error}
