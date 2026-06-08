@@ -256,20 +256,20 @@ export const useRecorderLogic = () => {
     const pickScreenSource = useCallback(async () => {
         if (!capabilities.displayMedia) throw new Error('Screen capture is not supported in this browser. Use Chrome or Edge on a desktop.');
 
-        // When "zoom into practice tool" is on, request the *current* tab
-        // directly via `preferCurrentTab` — Chrome shows a simple "Share
-        // this tab?" confirmation instead of the picker (the current tab is
-        // hidden from Chrome's Tab list by default, so without this option
-        // students had to dig through Window → pick the right one). When
-        // crop is off, we use the standard picker so they can pick any
-        // other tab / window / screen.
+        // We deliberately do NOT use `preferCurrentTab: true` here, even
+        // though it would skip the picker entirely. Reason: that flag
+        // forces Chrome's "self-capture" mode, which aggressively coalesces
+        // frames when on-screen content is mostly static — the recording
+        // ends up with a frozen PiP that only updates when something
+        // changes drastically. Instead we set `selfBrowserSurface: 'include'`
+        // so the current tab shows up in Chrome's normal Tab list (it's
+        // hidden by default), giving the student an easy "This Tab" entry
+        // to click without triggering the optimisation that froze the PiP.
         const constraints = {
             video: { frameRate: 30 },
             audio: includeTabAudio,
+            selfBrowserSurface: 'include',
         };
-        if (cropScreenCapture) {
-            constraints.preferCurrentTab = true;
-        }
         const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
         // NOTE: we deliberately don't apply the crop here — it gets applied
         // when recording actually starts (see applyScreenCrop in startRecording).
@@ -296,7 +296,7 @@ export const useRecorderLogic = () => {
         } else {
             setError(null);
         }
-    }, [capabilities.displayMedia, includeTabAudio, cropScreenCapture]);
+    }, [capabilities.displayMedia, includeTabAudio]);
 
     const ensureCompositor = useCallback(() => {
         if (compositorRef.current) return compositorRef.current;

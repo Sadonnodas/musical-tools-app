@@ -264,9 +264,7 @@ const SetupPanel = ({ onClose }) => {
                                 {screenBtnLabel}
                             </button>
                             <p className="text-[11px] text-gray-400">
-                                {cropScreenCapture
-                                    ? <>Chrome will ask to confirm sharing this tab. Tick <span className="font-semibold">"Share tab audio"</span> so the metronome / drone are captured too.</>
-                                    : <>In Chrome's dialog: pick <span className="font-semibold">"This Tab"</span> and tick <span className="font-semibold">"Share tab audio"</span>. The current tab isn't shown in the Tab list by default — use the <span className="font-semibold">Window</span> tab to find it.</>}
+                                In Chrome's dialog, look in the <span className="font-semibold">Chrome Tab</span> section, pick <span className="font-semibold">"This Tab"</span>, and tick <span className="font-semibold">"Share tab audio"</span> so the metronome / drone are captured.
                             </p>
                             <label className="flex items-start gap-2 text-[11px] text-gray-200">
                                 <input
