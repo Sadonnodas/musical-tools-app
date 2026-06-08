@@ -1,3 +1,5 @@
+import { releaseMediaElement } from './mediaCleanup';
+
 // Hardware-accelerated MP4 export using WebCodecs + mp4-muxer.
 //
 // Pipeline:
@@ -157,6 +159,9 @@ export const exportToMp4WebCodecs = async ({
     const width = probeEl.videoWidth || 1280;
     const height = probeEl.videoHeight || 720;
     URL.revokeObjectURL(probeUrl);
+    // Release the probe element's WebMediaPlayer. Chrome's ~75-player cap
+    // is hit fast if every export leaves a probe player alive.
+    releaseMediaElement(probeEl);
 
     const bitrate = videoBitrate || defaultBitrateFor(width, height);
 
@@ -237,9 +242,11 @@ export const exportToMp4WebCodecs = async ({
     videoEl.style.top = '0';
 
     const cleanupVideoEl = () => {
-        try { videoEl.pause(); } catch (_) {}
         try { URL.revokeObjectURL(videoEl.src); } catch (_) {}
         try { videoEl.remove(); } catch (_) {}
+        // Removing the element from the DOM is NOT enough to release the
+        // underlying WebMediaPlayer — see mediaCleanup.js.
+        releaseMediaElement(videoEl);
     };
 
     try {

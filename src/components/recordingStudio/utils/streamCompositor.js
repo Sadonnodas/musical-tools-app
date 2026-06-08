@@ -2,6 +2,8 @@
 // at a target resolution and framerate. Returns a MediaStream from the canvas
 // plus controls for live PiP layout updates.
 
+import { releaseMediaElement } from './mediaCleanup';
+
 const DEFAULT_FPS = 30;
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
@@ -254,8 +256,16 @@ export const createCompositor = ({
 
     const dispose = () => {
         stop();
-        webcamVideo.srcObject = null;
-        screenVideo.srcObject = null;
+        // Chrome enforces a hard cap (~75) on live WebMediaPlayer instances
+        // per page. Setting srcObject = null does NOT release the underlying
+        // player. You need to also clear src and call load() to tell the
+        // browser to tear it down. Without this, every record → review
+        // cycle in the same tab session leaks 2 video players (webcam +
+        // screen) and after enough takes the limit is hit, blocking the
+        // review preview from mounting (black screen) and the recorder
+        // from starting (silent failure).
+        releaseMediaElement(webcamVideo);
+        releaseMediaElement(screenVideo);
         try { canvas.remove(); } catch (_) {}
         try { hiddenHost.remove(); } catch (_) {}
     };

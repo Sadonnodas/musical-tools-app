@@ -253,6 +253,12 @@ export const createPlaybackEngine = ({
         // graph, or — worse — restart on its own when a fresh take's
         // engine mounts new elements with overlapping refs.
         playables.forEach((el) => { try { el.pause(); } catch (_) {} });
+        // Note: we do NOT call releaseMediaElement on the video/audio
+        // elements here because they're owned by React (rendered in
+        // ReviewPanel) and React will unmount them when key/currentTakeId
+        // changes — that's what releases the WebMediaPlayer. Touching
+        // their src here would race with React's controlled-element
+        // lifecycle.
         // Disconnect the per-engine gain branch from the shared graph but
         // DON'T close the shared ctx and DON'T disconnect the cached
         // MediaElementSource (it stays bound to the element so the next
