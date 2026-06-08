@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTools } from '../../context/ToolsContext';
-import { getTake, deleteTake as deleteTakeFromDb } from './utils/takesStorage';
+import { getTake, deleteTake as deleteTakeFromDb, saveTake } from './utils/takesStorage';
 import { exportComposed, isLoaded as ffmpegLoaded, preload as preloadFfmpeg } from './utils/ffmpegLoader';
 import { exportToMp4WebCodecs, isWebCodecsAvailable } from './utils/webcodecsExporter';
 import { isMp4Mime } from './utils/recorderEngine';
@@ -24,7 +24,12 @@ const todayStamp = () => {
 
 const ReviewPanel = ({ onClose }) => {
     const { recorder } = useTools();
-    const { currentTakeId, takes, refreshTakes, setCurrentTakeId, startNewTake, filenamePrefix } = recorder;
+    const { currentTakeId, takes, refreshTakes, setCurrentTakeId, startNewTake, viewSavedTakes, filenamePrefix } = recorder;
+    // viewSavedTakes is used elsewhere as "go to review"; here we want the
+    // inverse — a way to navigate back to setup without closing the studio.
+    // It's just a phase flip; reuse `startNewTake` since it does exactly that.
+    void viewSavedTakes;
+    const backToSetup = startNewTake;
 
     const [take, setTake] = useState(null);
     // URLs are stored together so a take change triggers exactly ONE re-render.
@@ -153,6 +158,12 @@ const ReviewPanel = ({ onClose }) => {
     }, [playing, outSec]);
 
     const filenameBase = useMemo(() => {
+        // If the take has a custom name, use that — the rename feature lets the
+        // student tag a take with the exercise name and download it directly.
+        if (take?.name) {
+            const safe = take.name.replace(/[^a-zA-Z0-9_ -]/g, '_').replace(/\s+/g, '_');
+            if (safe.length > 0) return safe;
+        }
         const prefix = (take?.filenamePrefix || filenamePrefix || 'practice').replace(/[^a-zA-Z0-9_-]/g, '_');
         return `${prefix}_${todayStamp()}`;
     }, [take, filenamePrefix]);
@@ -260,6 +271,39 @@ const ReviewPanel = ({ onClose }) => {
         if (currentTakeId === id) setCurrentTakeId(null);
     };
 
+    // Inline rename: track which take row is being edited and its draft value.
+    const [editingTakeId, setEditingTakeId] = useState(null);
+    const [editingValue, setEditingValue] = useState('');
+    const editInputRef = useRef(null);
+
+    const startEditingName = (t) => {
+        setEditingTakeId(t.id);
+        setEditingValue(t.name || '');
+    };
+    const cancelEditingName = () => {
+        setEditingTakeId(null);
+        setEditingValue('');
+    };
+    const commitEditingName = async () => {
+        const id = editingTakeId;
+        if (!id) return;
+        const next = editingValue.trim();
+        cancelEditingName();
+        const t = await getTake(id).catch(() => null);
+        if (!t) return;
+        // No-op if unchanged
+        if ((t.name || '') === next) return;
+        await saveTake({ ...t, name: next || undefined });
+        await refreshTakes();
+    };
+
+    useEffect(() => {
+        if (editingTakeId && editInputRef.current) {
+            editInputRef.current.focus();
+            editInputRef.current.select();
+        }
+    }, [editingTakeId]);
+
     const markersSec = useMemo(() => (take?.markers || []).map((ms) => ms / 1000), [take]);
     const isV2 = take?.version === 2;
     const hasMicTrack = isV2 ? !!take?.micBlob : false;
@@ -269,7 +313,16 @@ const ReviewPanel = ({ onClose }) => {
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-teal-300">Review &amp; Export</h2>
-                <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl font-bold leading-none">&times;</button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={backToSetup}
+                        className="text-sm px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white"
+                        title="Back to the setup screen to record a new take."
+                    >
+                        ← Back to setup
+                    </button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl font-bold leading-none">&times;</button>
+                </div>
             </div>
 
             <div className="grid md:grid-cols-3 gap-4">
@@ -284,7 +337,8 @@ const ReviewPanel = ({ onClose }) => {
                                         src={videoUrl}
                                         muted
                                         playsInline
-                                        preload="auto"
+                                        autoPlay={false}
+                                        preload="metadata"
                                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                     />
                                 ) : (
@@ -473,18 +527,57 @@ const ReviewPanel = ({ onClose }) => {
                                     ? ['videoBlob', 'micBlob', 'tabBlob'].reduce((s, k) => s + (t[k]?.size || 0), 0)
                                     : (t.blob?.size || 0);
                                 const sizeMB = totalSize / (1024 * 1024);
+                                const displayName = t.name || date.toLocaleString();
+                                const isEditing = editingTakeId === t.id;
                                 return (
                                     <li
                                         key={t.id}
                                         className={`p-2 rounded border ${currentTakeId === t.id ? 'bg-slate-700 border-teal-500' : 'bg-slate-900 border-slate-700'}`}
                                     >
-                                        <button type="button" onClick={() => setCurrentTakeId(t.id)} className="w-full text-left">
-                                            <div className="text-sm text-white font-mono">{date.toLocaleString()}</div>
-                                            <div className="text-[11px] text-gray-400">
-                                                {Math.round((t.durationMs || 0) / 1000)}s · {sizeMB.toFixed(1)} MB
-                                            </div>
-                                        </button>
-                                        <button onClick={() => onDeleteTake(t.id)} className="mt-1 text-[11px] text-red-300 hover:text-red-200">Delete</button>
+                                        {isEditing ? (
+                                            <input
+                                                ref={editInputRef}
+                                                type="text"
+                                                value={editingValue}
+                                                onChange={(e) => setEditingValue(e.target.value)}
+                                                onBlur={commitEditingName}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') { e.preventDefault(); commitEditingName(); }
+                                                    else if (e.key === 'Escape') { e.preventDefault(); cancelEditingName(); }
+                                                }}
+                                                placeholder={date.toLocaleString()}
+                                                className="w-full bg-slate-900 border border-teal-500 rounded px-1 py-0.5 text-sm text-white font-mono"
+                                            />
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => setCurrentTakeId(t.id)}
+                                                className="w-full text-left"
+                                            >
+                                                <div
+                                                    className="text-sm text-white font-mono truncate hover:bg-slate-800 rounded px-1 -mx-1 cursor-text"
+                                                    title="Click the name on the right to rename"
+                                                    onClick={(e) => {
+                                                        // If user clicks the name a second time while the take is
+                                                        // already selected, enter rename mode.
+                                                        if (currentTakeId === t.id) {
+                                                            e.stopPropagation();
+                                                            startEditingName(t);
+                                                        }
+                                                    }}
+                                                >
+                                                    {displayName}
+                                                </div>
+                                                <div className="text-[11px] text-gray-400">
+                                                    {t.name ? `${date.toLocaleString()} · ` : ''}
+                                                    {Math.round((t.durationMs || 0) / 1000)}s · {sizeMB.toFixed(1)} MB
+                                                </div>
+                                            </button>
+                                        )}
+                                        <div className="flex gap-3 mt-1 text-[11px]">
+                                            <button onClick={() => startEditingName(t)} className="text-teal-300 hover:text-teal-200">Rename</button>
+                                            <button onClick={() => onDeleteTake(t.id)} className="text-red-300 hover:text-red-200">Delete</button>
+                                        </div>
                                     </li>
                                 );
                             })}

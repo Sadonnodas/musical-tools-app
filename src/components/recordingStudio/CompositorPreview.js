@@ -1,9 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { useTools } from '../../context/ToolsContext';
 
-// Mounts the compositor's offscreen canvas into the DOM as a live preview.
-// The canvas itself is created by the compositor — we just attach it and
-// optionally apply a CSS mirror for the on-screen view.
+// Re-parents the compositor's canvas into a visible wrapper for live preview.
+// On unmount the canvas is moved BACK to the compositor's hidden host (not
+// detached from the DOM entirely) so its RAF loop keeps running at full rate
+// while recording continues without a visible preview. Chrome throttles RAF
+// for fully-detached canvases — leaving the canvas off-DOM would freeze the
+// recording mid-take on Windows / lower-end GPUs.
 const CompositorPreview = ({ className = '' }) => {
     const { recorder } = useTools();
     const wrapRef = useRef(null);
@@ -17,9 +20,10 @@ const CompositorPreview = ({ className = '' }) => {
         canvas.style.height = '100%';
         canvas.style.objectFit = 'contain';
         canvas.style.transform = 'none';
-        wrap.appendChild(canvas);
+        compositor.attachTo(wrap);
         return () => {
-            if (canvas.parentElement === wrap) wrap.removeChild(canvas);
+            // Return the canvas to its hidden host so RAF stays alive.
+            try { compositor.detach(); } catch (_) {}
         };
     }, [recorder, recorder.phase, recorder.hasWebcamStream, recorder.hasScreenStream]);
 

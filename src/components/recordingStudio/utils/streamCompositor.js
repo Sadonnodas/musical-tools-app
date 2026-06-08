@@ -186,10 +186,46 @@ export const createCompositor = ({
         state.rafId = null;
     };
 
+    // Chrome on Windows aggressively throttles requestAnimationFrame for
+    // canvases that aren't in the rendered DOM tree — after a few seconds
+    // RAF drops to ~0 fps and `canvas.captureStream()` stops emitting
+    // frames, so the recorded video freezes even though the underlying
+    // webcam/screen streams keep producing frames. Workaround: keep the
+    // canvas attached to a tiny, hidden-but-rendered host in document.body
+    // at all times. The CompositorPreview component re-parents the canvas
+    // into a visible wrapper for display and returns it here on unmount.
+    const hiddenHost = document.createElement('div');
+    hiddenHost.style.cssText = [
+        'position:fixed',
+        'left:0',
+        'top:0',
+        'width:1px',
+        'height:1px',
+        'overflow:hidden',
+        'pointer-events:none',
+        'opacity:0.01',
+        'z-index:-1',
+    ].join(';');
+    hiddenHost.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(hiddenHost);
+    hiddenHost.appendChild(canvas);
+
+    const attachTo = (parent) => {
+        if (!parent || canvas.parentElement === parent) return;
+        parent.appendChild(canvas);
+    };
+    const detach = () => {
+        if (canvas.parentElement !== hiddenHost) {
+            hiddenHost.appendChild(canvas);
+        }
+    };
+
     const dispose = () => {
         stop();
         webcamVideo.srcObject = null;
         screenVideo.srcObject = null;
+        try { canvas.remove(); } catch (_) {}
+        try { hiddenHost.remove(); } catch (_) {}
     };
 
     // wire initial streams
@@ -213,6 +249,8 @@ export const createCompositor = ({
         setMirrored,
         getPipRect: computePipRect,
         getState: () => ({ ...state, pip: { ...state.pip } }),
+        attachTo,
+        detach,
         start,
         stop,
         dispose,

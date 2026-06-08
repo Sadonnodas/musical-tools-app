@@ -71,14 +71,49 @@ export const createPlaybackEngine = ({
     micGainNode.connect(ctx.destination);
     tabGainNode.connect(ctx.destination);
 
-    const micSrc = getOrCreateMediaSource(ctx, micEl);
-    const tabSrc = getOrCreateMediaSource(ctx, tabEl);
-    if (micSrc) micSrc.connect(micGainNode);
-    if (tabSrc) tabSrc.connect(tabGainNode);
+    // `createMediaElementSource` is deferred until the first play(). When it
+    // runs at engine-creation time the audio elements often haven't decoded
+    // any data yet — the source binds to a silent stream and stays silent
+    // even after the element loads. By the time play() is called the user
+    // has clicked the play button (so the element is fully loaded and we're
+    // in a user-gesture context), and creating the source against a loaded
+    // element produces a binding that works on the first frame.
+    let micSrc = null;
+    let tabSrc = null;
+    let micConnected = false;
+    let tabConnected = false;
+
+    const ensureAudioRouting = () => {
+        if (micEl && !micConnected) {
+            micSrc = getOrCreateMediaSource(ctx, micEl);
+            if (micSrc) { try { micSrc.connect(micGainNode); } catch (_) {} }
+            micConnected = true;
+        }
+        if (tabEl && !tabConnected) {
+            tabSrc = getOrCreateMediaSource(ctx, tabEl);
+            if (tabSrc) { try { tabSrc.connect(tabGainNode); } catch (_) {} }
+            tabConnected = true;
+        }
+    };
 
     // The video element doesn't need Web Audio routing since the composited
-    // video has no audio track. Mute it just to be safe.
-    if (videoEl) videoEl.muted = true;
+    // video has no audio track. Mute it just to be safe, explicitly disable
+    // autoplay, and force a paused state. On some Chrome builds a muted
+    // <video> with a freshly-set src + a programmatic currentTime nudge
+    // can transition into the playing state without us calling .play() —
+    // that's the "auto-plays without user click" bug the user observed,
+    // which then prevents audio from being heard because the playback
+    // started outside of any user-gesture context.
+    if (videoEl) {
+        videoEl.muted = true;
+        try { videoEl.removeAttribute('autoplay'); } catch (_) {}
+        try { videoEl.pause(); } catch (_) {}
+    }
+    [micEl, tabEl].forEach((el) => {
+        if (!el) return;
+        try { el.removeAttribute('autoplay'); } catch (_) {}
+        try { el.pause(); } catch (_) {}
+    });
 
     const followers = [micEl, tabEl, videoEl].filter((el) => el && el !== leader);
     const playables = [leader, ...followers];
@@ -99,15 +134,11 @@ export const createPlaybackEngine = ({
     if (onPause) leader.addEventListener('pause', onPause);
     if (onEnded) leader.addEventListener('ended', onEnded);
 
-    // Nudge the video off zero once metadata loads so Chrome paints the
-    // first frame instead of holding a black canvas.
-    if (videoEl) {
-        const paintFirstFrame = () => {
-            try { videoEl.currentTime = 0.001; } catch (_) {}
-        };
-        if (videoEl.readyState >= 1) paintFirstFrame();
-        else videoEl.addEventListener('loadedmetadata', paintFirstFrame, { once: true });
-    }
+    // Don't programmatically seek the video to paint a "first frame" any
+    // more — that nudge was triggering autoplay in some browsers and
+    // sitting outside the user-gesture window. The <video> element with
+    // preload="metadata" shows its natural first frame on its own; if it
+    // looks black initially, the user clicks Play and it kicks in.
 
     let driftInterval = null;
     const startDriftLoop = () => {
@@ -180,20 +211,27 @@ export const createPlaybackEngine = ({
     };
 
     const play = async () => {
-        if (ctx.state === 'suspended') {
-            try { await ctx.resume(); } catch (_) {}
-        }
-        // First playback after mount can leave audio silent: the
-        // MediaElementSource binds at engine-creation time but the audio
-        // element hasn't decoded data yet, so the source taps an empty
-        // stream. We now (1) wait for the elements to actually have data,
-        // then (2) issue a seek and await `seeked` so the buffer is aligned
-        // before play() starts. Without the await, play() raced the seek
-        // and the source produced silence until the buffer caught up.
+        // Chrome's autoplay policy checks user-gesture state at the MOMENT
+        // .play() is called, not when its promise resolves. By the time
+        // we'd hit .play() after several awaits, the gesture context from
+        // the click is gone and audio elements get silently rejected (the
+        // user only heard sound after touching the timeline, which is its
+        // own gesture). Call .play() synchronously here, before any await,
+        // so the audio elements pick up the click's gesture cleanly.
+        // ctx.resume() is also called synchronously for the same reason.
+        const resumePromise = ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
+        const playPromises = playables.map((el) => el.play().catch(() => {}));
+
+        try { await resumePromise; } catch (_) {}
+        // Now (out of gesture context, but post-resume) prepare the audio
+        // routing and align positions. The sources tap into elements that
+        // are actively playing, so the binding is live from the first
+        // sample.
         await Promise.all([micEl, tabEl].map((el) => waitForReady(el)));
+        ensureAudioRouting();
         const t = Math.max(0, leader.currentTime);
         await Promise.all([micEl, tabEl].map((el) => seekAndWait(el, t)));
-        await Promise.all(playables.map((el) => el.play().catch(() => {})));
+        await Promise.all(playPromises);
         startDriftLoop();
     };
     const pause = () => {
@@ -210,6 +248,11 @@ export const createPlaybackEngine = ({
 
     const destroy = () => {
         stopDriftLoop();
+        // Pause all elements explicitly. Without this, an audio element
+        // can keep playing through its MediaElementSource into a stale
+        // graph, or — worse — restart on its own when a fresh take's
+        // engine mounts new elements with overlapping refs.
+        playables.forEach((el) => { try { el.pause(); } catch (_) {} });
         // Disconnect the per-engine gain branch from the shared graph but
         // DON'T close the shared ctx and DON'T disconnect the cached
         // MediaElementSource (it stays bound to the element so the next
