@@ -42,6 +42,7 @@ const AppContent = () => {
   } = useTools();
 
 const showMusicCircles = process.env.REACT_APP_SHOW_MUSIC_CIRCLES === 'true';
+const showChordShapes = process.env.REACT_APP_SHOW_CHORD_SHAPES === 'true';
 
 // Effects to automatically switch tabs
   useEffect(() => {
@@ -165,7 +166,7 @@ const showMusicCircles = process.env.REACT_APP_SHOW_MUSIC_CIRCLES === 'true';
                   {activeTab === 'rhythm-trainer' && <RhythmTool />}
                   {activeTab === 'pentatonic-shapes-quiz' && <PentatonicQuiz />}
                   {activeTab === 'scale-degree-quiz' && <ScaleDegreeQuiz />}
-                  {activeTab === 'chord-shapes-quiz' && <ChordShapesQuiz />}
+                  {showChordShapes && activeTab === 'chord-shapes-quiz' && <ChordShapesQuiz />}
               </>
           )}
       </main>
