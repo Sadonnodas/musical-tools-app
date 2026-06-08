@@ -8,9 +8,10 @@ import RecordingControlBar from './RecordingControlBar';
 // closes so the app is fully usable; only the floating control bar remains.
 const RecordingStudio = () => {
     const { recorder } = useTools();
-    const { phase, studioOpen, closeStudio } = recorder;
+    const { phase, studioOpen, closeStudio, getCompositor } = recorder;
 
     const showModal = studioOpen && (phase === 'setup' || phase === 'review');
+    const isRecordingActive = phase === 'recording' || phase === 'paused';
 
     // Close on Escape from modal (but not while recording)
     useEffect(() => {
@@ -21,6 +22,16 @@ const RecordingStudio = () => {
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [showModal, closeStudio]);
+
+    // Make the compositor's floating PiP preview host visible while
+    // recording, so the canvas is actually rendered on-screen and Chrome
+    // doesn't throttle its RAF. Without this the recorded video can be
+    // 0 bytes when the app is embedded in an iframe.
+    useEffect(() => {
+        const c = getCompositor && getCompositor();
+        if (!c || !c.setHostVisible) return;
+        c.setHostVisible(isRecordingActive);
+    }, [isRecordingActive, getCompositor, phase]);
 
     return (
         <>

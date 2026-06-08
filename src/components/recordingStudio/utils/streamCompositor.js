@@ -186,39 +186,71 @@ export const createCompositor = ({
         state.rafId = null;
     };
 
-    // Chrome on Windows aggressively throttles requestAnimationFrame for
-    // canvases that aren't in the rendered DOM tree — after a few seconds
-    // RAF drops to ~0 fps and `canvas.captureStream()` stops emitting
-    // frames, so the recorded video freezes even though the underlying
-    // webcam/screen streams keep producing frames. Workaround: keep the
-    // canvas attached to a tiny, hidden-but-rendered host in document.body
-    // at all times. The CompositorPreview component re-parents the canvas
-    // into a visible wrapper for display and returns it here on unmount.
+    // Chrome (especially in iframes / on Windows) aggressively throttles
+    // requestAnimationFrame for canvases that aren't VISIBLY rendered —
+    // a 1×1 mostly-transparent host counts as "invisible" and after a few
+    // seconds RAF drops to ~0 fps. The compositor's canvas stops being
+    // drawn → `canvas.captureStream()` emits no frames → the recorded
+    // video blob is 0 bytes even though audio recorders are fine. The
+    // host below is a small (~160×90) floating PiP-style preview tucked
+    // into the bottom-right corner; it's actually visible while the
+    // studio modal is closed (i.e., during recording), giving the student
+    // useful feedback AND keeping Chrome from throttling. While the modal
+    // is open, CompositorPreview re-parents the canvas into the modal's
+    // preview wrap, leaving this host empty (and the modal covers it).
     const hiddenHost = document.createElement('div');
     hiddenHost.style.cssText = [
         'position:fixed',
-        'left:0',
-        'top:0',
-        'width:1px',
-        'height:1px',
+        'right:16px',
+        'bottom:16px',
+        'width:240px',
+        'height:135px',
         'overflow:hidden',
         'pointer-events:none',
-        'opacity:0.01',
-        'z-index:-1',
+        'border-radius:8px',
+        'border:2px solid rgba(255,255,255,0.4)',
+        'background:#000',
+        'box-shadow:0 4px 16px rgba(0,0,0,0.6)',
+        // Below the studio modal (z-index 80, set in RecordingStudio.js) so
+        // the modal covers the preview during setup/review, but above the
+        // app content (default 0) and side rail (z-30) so it's visible
+        // while recording.
+        'z-index:70',
     ].join(';');
     hiddenHost.setAttribute('aria-hidden', 'true');
     document.body.appendChild(hiddenHost);
     hiddenHost.appendChild(canvas);
+    // Style the canvas to fill the host when it's living there.
+    const styleCanvasForHost = () => {
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.objectFit = 'cover';
+    };
+    styleCanvasForHost();
 
     const attachTo = (parent) => {
         if (!parent || canvas.parentElement === parent) return;
         parent.appendChild(canvas);
+        // The consumer sets its own styles for the modal preview.
     };
     const detach = () => {
         if (canvas.parentElement !== hiddenHost) {
             hiddenHost.appendChild(canvas);
+            // Re-apply host-friendly styles since the consumer (preview wrap)
+            // may have overridden them.
+            styleCanvasForHost();
         }
     };
+
+    // Show/hide the floating PiP-style preview. Called by RecordingStudio
+    // based on phase — hidden during setup/review (modal covers everything),
+    // shown during recording so the canvas is visibly rendered and Chrome
+    // doesn't throttle its RAF.
+    const setHostVisible = (visible) => {
+        hiddenHost.style.display = visible ? 'block' : 'none';
+    };
+    // Hidden by default; RecordingStudio flips it on when recording starts.
+    setHostVisible(false);
 
     const dispose = () => {
         stop();
@@ -251,6 +283,7 @@ export const createCompositor = ({
         getState: () => ({ ...state, pip: { ...state.pip } }),
         attachTo,
         detach,
+        setHostVisible,
         start,
         stop,
         dispose,
