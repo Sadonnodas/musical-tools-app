@@ -20,6 +20,7 @@ const GlobalTools = () => {
         recorder
     } = useTools();
     const isRecordingLive = recorder?.phase === 'recording' || recorder?.phase === 'paused';
+    const showRecordingStudio = process.env.REACT_APP_SHOW_RECORDING_STUDIO === 'true';
 
     const PlayIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>;
     const PauseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" /></svg>;
@@ -80,17 +81,19 @@ const GlobalTools = () => {
                          md:top-1/4 md:left-5 md:right-auto md:bottom-5 md:flex-col md:items-stretch md:p-3 md:gap-2 md:border-t-0 md:rounded-lg md:border
                          transition-all duration-300 ${activeTool === 'log' || activeTool === 'presets' ? 'md:w-96' : 'md:w-64'}`}>
                 {/* Recording Studio entry — opens its own modal rather than expanding inline */}
-                <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 flex-shrink-0 md:flex md:flex-col">
-                    <div className="flex items-center flex-shrink-0">
-                        <button
-                            onClick={() => recorder?.openStudio()}
-                            className="flex-grow text-left font-bold py-2 px-3 md:py-3 md:px-4 text-white hover:bg-indigo-700 rounded-lg text-sm md:text-base flex items-center gap-2"
-                        >
-                            <span className={`inline-block w-2.5 h-2.5 rounded-full ${isRecordingLive ? 'bg-red-500 animate-pulse' : 'bg-red-400'}`} />
-                            Recording Studio
-                        </button>
+                {showRecordingStudio && (
+                    <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 flex-shrink-0 md:flex md:flex-col">
+                        <div className="flex items-center flex-shrink-0">
+                            <button
+                                onClick={() => recorder?.openStudio()}
+                                className="flex-grow text-left font-bold py-2 px-3 md:py-3 md:px-4 text-white hover:bg-indigo-700 rounded-lg text-sm md:text-base flex items-center gap-2"
+                            >
+                                <span className={`inline-block w-2.5 h-2.5 rounded-full ${isRecordingLive ? 'bg-red-500 animate-pulse' : 'bg-red-400'}`} />
+                                Recording Studio
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
                 {tools.map(tool => {
                     const ToolComponent = tool.Component;
                     return (

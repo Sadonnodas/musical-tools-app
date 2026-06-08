@@ -43,6 +43,7 @@ const AppContent = () => {
 
 const showMusicCircles = process.env.REACT_APP_SHOW_MUSIC_CIRCLES === 'true';
 const showChordShapes = process.env.REACT_APP_SHOW_CHORD_SHAPES === 'true';
+const showRecordingStudio = process.env.REACT_APP_SHOW_RECORDING_STUDIO === 'true';
 
 // Effects to automatically switch tabs
   useEffect(() => {
@@ -111,7 +112,7 @@ const showChordShapes = process.env.REACT_APP_SHOW_CHORD_SHAPES === 'true';
       </div>
 
       <GlobalTools />
-      <RecordingStudio />
+      {showRecordingStudio && <RecordingStudio />}
 
       <header className="w-full max-w-5xl mx-auto bg-slate-800 shadow-lg rounded-xl p-6 mb-8 text-center">
         <h1 className="text-3xl md:text-5xl font-extrabold text-teal-400 leading-tight">Musical Practice Tools</h1>
