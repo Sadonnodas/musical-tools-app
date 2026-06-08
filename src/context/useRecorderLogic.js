@@ -271,32 +271,12 @@ export const useRecorderLogic = () => {
             constraints.preferCurrentTab = true;
         }
         const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-
-        // Try to crop the stream to just the app's main content area. Only
-        // works for "This Tab" captures on browsers that support Region
-        // Capture (Chrome / Edge 104+) or Element Capture (Chrome 132+).
-        // Silently falls back to whole-tab capture on unsupported browsers
-        // or when the user picked Entire Screen / Window.
-        if (cropScreenCapture) {
-            const target = document.getElementById('app-main-content');
-            const track = stream.getVideoTracks()[0];
-            if (target && track) {
-                try {
-                    if (window.RestrictionTarget && window.RestrictionTarget.fromElement && track.restrictTo) {
-                        const rt = await window.RestrictionTarget.fromElement(target);
-                        await track.restrictTo(rt);
-                    } else if (window.CropTarget && window.CropTarget.fromElement && track.cropTo) {
-                        const ct = await window.CropTarget.fromElement(target);
-                        await track.cropTo(ct);
-                    }
-                } catch (e) {
-                    // Most often this means the user picked something other
-                    // than "This Tab" — that's fine, we just get the whole
-                    // capture as the fallback.
-                    console.warn('Region/Element Capture failed; recording whole capture instead.', e);
-                }
-            }
-        }
+        // NOTE: we deliberately don't apply the crop here — it gets applied
+        // when recording actually starts (see applyScreenCrop in startRecording).
+        // During setup the modal is on top of <main>, so a crop applied now
+        // would just capture the modal's backdrop and the preview PiP would
+        // appear empty/black. Once the modal closes at record-start, the
+        // crop captures the real tool content.
         // Browser may end the stream (user clicked "Stop sharing") — handle it.
         stream.getVideoTracks()[0]?.addEventListener('ended', () => {
             screenStreamRef.current = null;
@@ -557,6 +537,30 @@ export const useRecorderLogic = () => {
             mixer.setMicStream(includeAudio ? micStreamRef.current : null);
             mixer.setSystemStream(includeAudio ? screenStreamRef.current : null);
 
+            // Apply the screen-capture crop NOW (modal has just closed). When
+            // we deferred this from pickScreenSource, it was because the
+            // modal was covering <main> and the crop would have captured the
+            // modal's backdrop instead of the tool content. With the modal
+            // gone the crop captures the active tool cleanly, and also
+            // excludes the floating PiP preview which sits outside <main>.
+            if (cropScreenCapture && screenStreamRef.current) {
+                const target = document.getElementById('app-main-content');
+                const screenTrack = screenStreamRef.current.getVideoTracks()[0];
+                if (target && screenTrack) {
+                    try {
+                        if (window.RestrictionTarget && window.RestrictionTarget.fromElement && screenTrack.restrictTo) {
+                            const rt = await window.RestrictionTarget.fromElement(target);
+                            await screenTrack.restrictTo(rt);
+                        } else if (window.CropTarget && window.CropTarget.fromElement && screenTrack.cropTo) {
+                            const ct = await window.CropTarget.fromElement(target);
+                            await screenTrack.cropTo(ct);
+                        }
+                    } catch (e) {
+                        console.warn('Region/Element Capture failed; recording whole capture instead.', e);
+                    }
+                }
+            }
+
             // Give the source <video> elements time to actually have decoded
             // frames after we (re-)set their srcObjects, then force one final
             // synchronous compositor draw so the first frame on the canvas-
@@ -599,7 +603,7 @@ export const useRecorderLogic = () => {
             setError(e.message || String(e));
             setPhase('setup');
         }
-    }, [ensureWebcamStream, ensureCompositor, ensureAudioMixer, includeAudio, autoStopMin, resolution, tickElapsed, stopRecording]);
+    }, [ensureWebcamStream, ensureCompositor, ensureAudioMixer, includeAudio, autoStopMin, resolution, cropScreenCapture, tickElapsed, stopRecording]);
 
     const pauseRecording = useCallback(() => {
         if (!recorderRef.current) return;
