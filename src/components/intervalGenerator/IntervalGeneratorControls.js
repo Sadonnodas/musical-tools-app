@@ -1,4 +1,5 @@
 import React from 'react';
+import { NumberStepper } from '../common/NumberStepper';
 
 export const IntervalGeneratorControls = ({
     settings,
@@ -76,10 +77,10 @@ export const IntervalGeneratorControls = ({
                     <div className="w-11 h-6 bg-gray-500 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                 </label>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-y-2">
                 <label htmlFor="auto-generate-interval-int" className={`font-semibold ${!isAutoGenerateOn && 'opacity-50'}`}>Generate every:</label>
                 <div className="flex items-center gap-2">
-                    <input type="number" id="auto-generate-interval-int" value={autoGenerateInterval} onChange={(e) => onIntervalChange(Math.max(1, parseInt(e.target.value, 10) || 1))} className={`w-24 p-2 rounded-md bg-slate-600 text-white text-center ${!isAutoGenerateOn && 'opacity-50'}`} min="1" disabled={!isAutoGenerateOn} />
+                    <NumberStepper id="auto-generate-interval-int" value={autoGenerateInterval} onChange={onIntervalChange} min={1} disabled={!isAutoGenerateOn} />
                     <span className={`font-semibold ${!isAutoGenerateOn && 'opacity-50'}`}>clicks</span>
                 </div>
             </div>
